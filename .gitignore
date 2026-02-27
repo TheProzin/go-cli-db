@@ -1,0 +1,5 @@
+__debug_bin*
+db_files
+bkps
+.env
+go-cli-db

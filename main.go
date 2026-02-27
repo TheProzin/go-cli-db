@@ -1,17 +1,22 @@
 package main
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
+	"go-cli-db/database"
+	"go-cli-db/globals"
+	"go-cli-db/prompts"
 	"go-cli-db/select_option"
+	"log"
 	"os"
+	"os/signal"
 	"strings"
 	"syscall"
-
-	"golang.org/x/term"
 )
 
 func main() {
+
+	fmt.Print(globals.ResetTerminal)
 	// name := StringPrompt("Name?")
 	// fmt.Printf("Hello %s", name)
 	// fmt.Println()
@@ -27,73 +32,74 @@ func main() {
 	// 	fmt.Println("Sad")
 	// }
 
-	fruits := make(map[int]string)
-	fruits[0] = "Banana"
-	fruits[1] = "Maca"
-	fruits[3] = "Pera"
-	fruits[4] = "Laranja"
-	fruits[5] = "Melao"
-	SelectPrompt("Fruits", fruits)
+	sigChan := make(chan os.Signal, 1)
+
+	signal.Notify(sigChan,
+		syscall.SIGINT,  // CTRL+C
+		syscall.SIGTERM, // Terminação
+	)
+
+	go func() {
+		<-sigChan
+		fmt.Println("\n\nPrograma interrompido. Limpando...")
+
+		fmt.Print(globals.ShowCursor)
+		fmt.Print(globals.ResetFormat)
+		fmt.Print(globals.ResetTerminal)
+
+		os.Exit(0)
+	}()
+	ShowMainMenu()
 }
 
-func StringPrompt(label string) string {
-	var s string
-	r := bufio.NewReader(os.Stdin)
-	for {
-		fmt.Fprint(os.Stderr, label+" ")
-		s, _ = r.ReadString('\n')
-		if s != "" {
-			break
-		}
-	}
-	return strings.TrimSpace(s)
-}
+func ShowMainMenu() {
+	var mainMenu select_option.Options
 
-func PasswordPrompt(label string) string {
-	var s string
-	for {
-		fmt.Fprint(os.Stderr, label+" ")
-		b, _ := term.ReadPassword(int(syscall.Stdin))
-		s = string(b)
-		if s != "" {
-			break
-		}
-	}
-	fmt.Println()
-	return s
-}
+	mainMenu = append(mainMenu, struct {
+		Id    int
+		Label string
+	}{Id: 1, Label: "Create new backup config"})
+	mainMenu = append(mainMenu, struct {
+		Id    int
+		Label string
+	}{Id: 2, Label: "Start backup"})
 
-func YesOrNoPrompt(label string, def bool) bool {
-	var s string
-	r := bufio.NewReader(os.Stdin)
-	choices := "Y/n"
-	if !def {
-		choices = "n/Y"
+	mainMenuOption, err := prompts.SelectPrompt("Choose your option:", mainMenu)
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: "+err.Error())
 	}
 
-	for {
-		fmt.Fprintf(os.Stderr, "%s (%s) ", label, choices)
-		s, _ = r.ReadString('\n')
-		s = strings.TrimSpace(s)
-		if s == "" {
-			return def
-		}
-		s = strings.ToLower(s)
-		if s == "y" || s == "yes" {
-			return true
-		}
-		if s == "n" || s == "no" {
-			return false
-		}
+	if mainMenuOption == 1 {
+		CreateBackup()
 	}
 }
 
-func SelectPrompt(label string, opts map[int]string) int {
+func CreateBackup() {
 
-	selectOptions := select_option.NewSelectMenu(opts)
+	var Database database.DatabaseData
+	Database.Host = prompts.StringPrompt("Database Host:", false)
+	Database.Name = prompts.StringPrompt("Database Name:", false)
+	Database.Username = prompts.StringPrompt("Database Username:", false)
+	Database.Password = prompts.PasswordPrompt("Database Password:")
+	ignoreTables := prompts.StringPrompt("Database Ignore Tables (separated by comma):", true)
+	Database.IgnoreTables = strings.Split(ignoreTables, ",")
+	fmt.Print(globals.ResetTerminal)
 
-	// r := bufio.NewReader(os.Stdin)
-	// var s string
-	selectOptions.DisplayMenu()
-	return 1
+	jsonDatabase, err := json.Marshal(Database)
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: ", err.Error())
+	}
+
+	dbFilesDir := globals.GoDotEnvVariable("DB_FILES_DIR")
+	if _, err := os.Stat(dbFilesDir); err != nil {
+		err := os.Mkdir(dbFilesDir, 0750)
+		if err != nil && !os.IsExist(err) {
+			log.Fatal(err)
+		}
+	}
+	err = os.WriteFile(dbFilesDir+Database.Name+".json", jsonDatabase, 0644)
+
+	database.InitDbDump(Database)
 }
