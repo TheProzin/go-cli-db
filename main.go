@@ -192,6 +192,8 @@ func ChooseDbFileForRestore() {
 
 func chooseDbConfig() (database.DatabaseData, error) {
 
+	fmt.Fprintln(os.Stdout, "Press Esc if you want to go back")
+
 	dbConfigFilesDir := globals.GoDotEnvVariable("DB_FILES_DIR")
 	files, err := os.ReadDir(dbConfigFilesDir)
 
@@ -243,6 +245,8 @@ func chooseDbConfig() (database.DatabaseData, error) {
 }
 
 func chooseDumpFileName() (string, error) {
+
+	fmt.Fprintln(os.Stdout, "Press Esc if you want to go back")
 
 	dbBkpFilesDir := globals.GoDotEnvVariable("DB_BACKUP_DIR")
 	filesFrom, err := os.ReadDir(dbBkpFilesDir)
