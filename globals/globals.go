@@ -3,6 +3,7 @@ package globals
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 )
@@ -24,8 +25,9 @@ const (
 
 func GoDotEnvVariable(key string) string {
 
-	// load .env file
-	err := godotenv.Load(".env")
+	homeDir, _ := os.UserHomeDir()
+	envPath := filepath.Join(homeDir, ".go-cli-db", ".env")
+	err := godotenv.Load(envPath)
 
 	if err != nil {
 		log.Fatalf("Error loading .env file")
