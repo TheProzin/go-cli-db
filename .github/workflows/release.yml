@@ -8,6 +8,8 @@ jobs:
   build:
     name: Build & Upload Binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     strategy:
       matrix:
@@ -48,7 +50,7 @@ jobs:
           go build \
             -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
             -o go-cli-db-${{ matrix.suffix }} \
-            ./  # Troque pelo path do seu main.go
+            ./
 
       - name: Upload para a Release
         uses: softprops/action-gh-release@v2
