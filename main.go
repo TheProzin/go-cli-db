@@ -9,6 +9,7 @@ import (
 	"go-cli-db/select_option"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 )
@@ -48,10 +49,43 @@ func main() {
 
 		os.Exit(0)
 	}()
+	err := VerifyEnvFile()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: ", err.Error())
+	}
 	ShowMainMenu()
 }
 
+func VerifyEnvFile() error {
+	homeDir, _ := os.UserHomeDir()
+	envPath := filepath.Join(homeDir, ".go-cli-db", ".env")
+
+	if _, err := os.Stat(envPath); err != nil {
+		fmt.Fprintln(os.Stdout, "Describe the path like '/tmp/db/'")
+		dbConfigPath := prompts.StringPrompt("Path to database configuration files:", false)
+		dbDumpPath := prompts.StringPrompt("Path to database dump files:", false)
+
+		homeDir, _ := os.UserHomeDir()
+		err := os.MkdirAll(filepath.Join(homeDir, ".go-cli-db"), 0755)
+
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error: ", err.Error())
+			return err
+		}
+
+		content := fmt.Sprintf("DB_BACKUP_DIR=%s\nDB_FILES_DIR=%s\n", dbConfigPath, dbDumpPath)
+		err = os.WriteFile(filepath.Join(homeDir, ".go-cli-db", ".env"), []byte(content), 0644)
+
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error: ", err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
 func ShowMainMenu() {
+
 	var mainMenu select_option.Options
 
 	mainMenu = append(mainMenu, struct {
@@ -66,6 +100,10 @@ func ShowMainMenu() {
 		Id    int
 		Label string
 	}{Id: 3, Label: "Restore dump"})
+	mainMenu = append(mainMenu, struct {
+		Id    int
+		Label string
+	}{Id: 4, Label: "Change files path"})
 	mainMenu = append(mainMenu, struct {
 		Id    int
 		Label string
@@ -88,6 +126,8 @@ loop:
 			ChooseDbFileForBackup()
 		case 3:
 			ChooseDbFileForRestore()
+		case 4:
+			ChangeFilePaths()
 		case 9:
 			break loop
 		}
@@ -282,4 +322,26 @@ func chooseDumpFileName() (string, error) {
 	sqlDumpFile := filesFrom[fileWhereFromDbSelected]
 
 	return sqlDumpFile.Name(), nil
+}
+
+func ChangeFilePaths() {
+	fmt.Fprintln(os.Stdout, "Describe the path like '/tmp/db/'")
+	dbConfigPath := prompts.StringPrompt("Path to database configuration files:", false)
+	dbDumpPath := prompts.StringPrompt("Path to database dump files:", false)
+
+	homeDir, _ := os.UserHomeDir()
+	err := os.MkdirAll(filepath.Join(homeDir, ".go-cli-db"), 0755)
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: ", err.Error())
+		return
+	}
+
+	content := fmt.Sprintf("DB_BACKUP_DIR=%s\nDB_FILES_DIR=%s\n", dbConfigPath, dbDumpPath)
+	err = os.WriteFile(filepath.Join(homeDir, ".go-cli-db", ".env"), []byte(content), 0644)
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: ", err.Error())
+		return
+	}
 }
